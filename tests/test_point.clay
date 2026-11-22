@@ -1,0 +1,215 @@
+// Tests for stdlib/point. Run them from anywhere in the Clay checkout:
+//   clay lib/stdlib/point/tests/test_point.clay
+//
+// They use stdlib/test, which comes with Clay:
+//   Test describe("name") { ... }   groups tests (groups can nest)
+//   Test it("name") { ... }         one test: it fails if anything in it raises
+//   Test assertEqual(actual, expected), assertNotEqual, assertTrue / assertFalse
+//                                   (exactly true / false), and
+//   Test assertRaises({ ... }, "ErrorType") check a result; each raises on failure
+//   Test run                        prints the summary, exits with status 1 if
+//                                   any test failed (so CI sees it)
+// Each `it` block is its own block: a variable made in one test isn't seen in
+// the next, so every test builds the points it needs.
+import("stdlib/point")
+import("stdlib/test")
+
+// Floats are 32-bit, so compare computed ones with a tolerance
+near = { |a, b| ((a - b) abs) < 0.0001 }
+
+Test describe("Point") {
+    Test describe("new") {
+        Test it("makes a Point") {
+            Test assertEqual(Point new(1, 2) type, "Point")
+        }
+
+        Test it("sets x and y") {
+            p = Point new(3, 4)
+            Test assertEqual(p getX, 3)
+            Test assertEqual(p getY, 4)
+        }
+
+        Test it("takes floats and negative numbers") {
+            p = Point new(1.5, -2)
+            Test assertEqual(p getX, 1.5)
+            Test assertEqual(p getY, -2)
+        }
+
+        Test it("rejects anything but numbers") {
+            e = Test assertRaises({ Point new("a", 2) })
+            Test assertEqual(e message, "Point:new expects numbers")
+            Test assertRaises({ Point new(1, nil) })
+            Test assertRaises({ Point new })
+        }
+
+        Test it("leaves the prototype at the origin") {
+            Point new(5, 6)
+            Test assertEqual(Point getX, 0)
+            Test assertEqual(Point getY, 0)
+        }
+    }
+
+    Test describe("accessors") {
+        Test it("setX and setY change the point and return it") {
+            p = Point new(1, 2)
+            Test assertTrue((p setX(7)) == p)
+            p setY(8)
+            Test assertEqual(p, Point new(7, 8))
+        }
+
+        Test it("chain") {
+            Test assertEqual(Point new(0, 0) setX(1) setY(2), Point new(1, 2))
+        }
+
+        Test it("x and y are also plain slots") {
+            p = Point new(1, 2)
+            Test assertEqual(p x, 1)
+            p y = 9
+            Test assertEqual(p getY, 9)
+        }
+
+        Test it("copy is equal but separate") {
+            p = Point new(1, 2)
+            q = p copy
+            Test assertEqual(q, p)
+            q setX(5)
+            Test assertEqual(p getX, 1)
+        }
+    }
+
+    Test describe("equality") {
+        Test it("== compares coordinates") {
+            Test assertTrue(Point new(1, 2) == Point new(1, 2))
+            Test assertFalse(Point new(1, 2) == Point new(2, 1))
+        }
+
+        Test it("!= is the opposite of ==") {
+            Test assertFalse(Point new(1, 2) != Point new(1, 2))
+            Test assertTrue(Point new(1, 2) != Point new(1, 3))
+        }
+
+        Test it("is never equal to something that is not a point") {
+            p = Point new(1, 2)
+            Test assertFalse(p == nil)
+            Test assertFalse(p == 1)
+            Test assertFalse(p == "Point(1, 2)")
+            Test assertTrue(p != nil)
+        }
+
+        Test it("works with assertEqual") {
+            Test assertEqual(Point new(1, 2), Point new(1, 2))
+            Test assertNotEqual(Point new(1, 2), Point new(0, 0))
+        }
+    }
+
+    Test describe("arithmetic") {
+        Test it("+ and - work coordinate by coordinate") {
+            a = Point new(1, 2)
+            b = Point new(3, 5)
+            Test assertEqual(a + b, Point new(4, 7))
+            Test assertEqual(b - a, Point new(2, 3))
+        }
+
+        Test it("* and / take a number") {
+            Test assertEqual(Point new(1, 2) * 3, Point new(3, 6))
+            Test assertEqual(Point new(1, 2) * 0.5, Point new(0.5, 1))
+            Test assertEqual(Point new(4, 6) / 2, Point new(2, 3))
+        }
+
+        Test it("integer points divide like integers") {
+            Test assertEqual(Point new(7, 9) / 2, Point new(3, 4))
+            Test assertRaises({ Point new(1, 1) / 0 }, "DivisionByZero")
+        }
+
+        Test it("negated flips both signs") {
+            Test assertEqual(Point new(3, -4) negated, Point new(-3, 4))
+        }
+
+        Test it("unary minus sends negated") {
+            p = Point new(3, -4)
+            Test assertEqual(-p, Point new(-3, 4))
+            Test assertEqual(-(p + Point new(1, 1)), Point new(-4, 3))
+        }
+
+        Test it("operators return new points and leave their operands alone") {
+            a = Point new(1, 2)
+            b = Point new(3, 4)
+            a + b
+            a - b
+            a * 2
+            a negated
+            Test assertEqual(a, Point new(1, 2))
+            Test assertEqual(b, Point new(3, 4))
+        }
+
+        Test it("scale changes the point and returns it") {
+            p = Point new(1, 2)
+            Test assertTrue((p scale(3)) == p)
+            Test assertEqual(p, Point new(3, 6))
+        }
+
+        Test it("+ needs a point") {
+            Test assertRaises({ Point new(1, 2) + 1 })
+        }
+    }
+
+    Test describe("vector math") {
+        Test it("lenSquared and length") {
+            p = Point new(3, 4)
+            Test assertEqual(p lenSquared, 25)
+            Test assertEqual(p length, 5)
+            Test assertEqual(Point new(0, 0) length, 0)
+        }
+
+        Test it("distance") {
+            Test assertEqual(Point new(1, 1) distance(Point new(4, 5)), 5)
+            Test assertEqual(Point new(2, 3) distance(Point new(2, 3)), 0)
+        }
+
+        Test it("dot") {
+            Test assertEqual(Point new(1, 2) dot(Point new(3, 4)), 11)
+            Test assertEqual(Point new(1, 0) dot(Point new(0, 1)), 0)
+        }
+
+        Test it("cross gives the turn direction") {
+            Test assertEqual(Point new(1, 0) cross(Point new(0, 1)), 1)
+            Test assertEqual(Point new(0, 1) cross(Point new(1, 0)), -1)
+            Test assertEqual(Point new(2, 2) cross(Point new(1, 1)), 0)
+        }
+
+        Test it("normalized has length 1 and the same direction") {
+            n = Point new(3, 4) normalized
+            Test assertTrue(near value(n getX, 0.6))
+            Test assertTrue(near value(n getY, 0.8))
+            Test assertTrue(near value(n length, 1))
+        }
+
+        Test it("normalized refuses a zero-length point") {
+            e = Test assertRaises({ Point new(0, 0) normalized })
+            Test assertEqual(e message, "Point normalized: zero length")
+        }
+
+        Test it("lerp goes part of the way") {
+            a = Point new(0, 0)
+            b = Point new(10, 20)
+            Test assertEqual(a lerp(b, 0), a)
+            Test assertEqual(a lerp(b, 1), b)
+            Test assertEqual(a lerp(b, 0.5), Point new(5, 10))
+        }
+    }
+
+    Test describe("toString") {
+        Test it("shows the coordinates") {
+            Test assertEqual(Point new(1, 2) toString, "Point(1, 2)")
+            Test assertEqual(Point new(1.5, -2) toString, "Point(1.5, -2)")
+        }
+
+        Test it("is used by string interpolation") {
+            p = Point new(3, 4)
+            Test assertEqual("at ${p}", "at Point(3, 4)")
+        }
+    }
+}
+
+// run the test cases
+Test run

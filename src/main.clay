@@ -1,0 +1,125 @@
+// point -- a 2D point (or vector) with arithmetic and vector math
+//
+// Usage:
+//   import("stdlib/point")
+//
+//   a = Point new(3, 4)
+//   b = Point new(1, 2)
+//   (a + b) println                  // Point(4, 6)
+//   (a * 2) println                  // Point(6, 8)
+//   a length println                 // 5
+//   (a dot(b)) println               // 11
+//
+// The operators (+, -, *, /, negated, normalized, ...) return new points;
+// setX, setY and scale change the point itself (and return it, so calls chain).
+//
+// Every brick shares one set of top-level names with the program that imports
+// it, so keep yours few and distinctive: typically just the objects you provide.
+
+Point = Object clone {
+    x = 0
+    y = 0
+
+    // constructor
+    init(anx, any) {
+        ((anx type != "Number") || (any type != "Number")) ifTrue { raise("Point:new expects numbers") }
+
+        x = anx
+        y = any
+    }
+
+    // setters and getters
+    setX(anx) {
+        x = anx
+        self
+    }
+
+    getX()  { x }
+
+    setY(any) {
+        y = any
+        self
+    }
+
+    getY()  { y }
+
+    copy() { Point new(x, y) }
+
+    // L2 norm
+    lenSquared() {
+        (x * x) + (y * y)
+    }
+
+    // magnitude
+    length() {
+        Math sqrt(self lenSquared())
+    }
+
+    // how far it is to another point
+    distance(other) {
+        (self - other) length
+    }
+
+    // the point scaled to length 1 (a zero-length point has no direction)
+    normalized() {
+        len = self length
+        (len == 0) ifTrue { raise("Point normalized: zero length") }
+        Point new(x / len, y / len)
+    }
+
+    +(other) {
+        Point new(x + other getX, y + other getY)
+    }
+
+    -(other) {
+        Point new(x - other getX, y - other getY)
+    }
+
+    // times / divided by a number (integer points divide like integers)
+    *(factor) {
+        Point new(x * factor, y * factor)
+    }
+
+    /(divisor) {
+        Point new(x / divisor, y / divisor)
+    }
+
+    // -p
+    negated() {
+        Point new(0 - x, 0 - y)
+    }
+
+    // Equal to another point with the same coordinates; anything that is not
+    // a point (nil, a number, ...) is not equal. (!= is the opposite of ==.)
+    ==(other) {
+        ((other hasMethod("getX")) && (other hasMethod("getY"))) ifFalse { return false }
+        x == other getX && y == other getY
+    }
+
+    // scale this vector by a factor
+    scale(factor) {
+        x *= factor
+        y *= factor
+        self
+    }
+
+    // compute the doc product of this and another vectors
+    dot(other) {
+        (x * other getX) + (y * other getY)
+    }
+
+    // the z of the 3D cross product: > 0 when other is counterclockwise from
+    // this point, < 0 when clockwise, 0 when they are parallel
+    cross(other) {
+        (x * other getY) - (y * other getX)
+    }
+
+    // the point a fraction t of the way to other (t = 0: this one, 1: other)
+    lerp(other, t) {
+        Point new(x + (other getX - x) * t, y + (other getY - y) * t)
+    }
+
+    toString() {
+        "Point(${x}, ${y})"
+    }
+}
