@@ -1,11 +1,11 @@
-# stdlib/point
+# point
 
 2D points and vectors for Clay: arithmetic, length, distance, dot and cross products.
 
 ## Usage
 
 ```clay
-import("stdlib/point")
+import("point")
 
 a = Point new(3, 4)
 b = Point new(1, 2)

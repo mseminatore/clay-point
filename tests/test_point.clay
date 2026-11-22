@@ -11,7 +11,7 @@
 //                                   any test failed (so CI sees it)
 // Each `it` block is its own block: a variable made in one test isn't seen in
 // the next, so every test builds the points it needs.
-import("stdlib/point")
+import("point")
 import("stdlib/test")
 
 // Floats are 32-bit, so compare computed ones with a tolerance
