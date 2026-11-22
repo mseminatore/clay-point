@@ -60,6 +60,11 @@ Point = Object clone {
         (self - other) length
     }
 
+    // squared distance — avoids sqrt; use for comparisons
+    distanceSquared(other) {
+        (self - other) lenSquared
+    }
+
     // the point scaled to length 1 (a zero-length point has no direction)
     normalized() {
         len = self length
@@ -86,7 +91,7 @@ Point = Object clone {
 
     // -p
     negated() {
-        Point new(0 - x, 0 - y)
+        Point new(-x, -y)
     }
 
     // Equal to another point with the same coordinates; anything that is not
@@ -103,7 +108,32 @@ Point = Object clone {
         self
     }
 
-    // compute the doc product of this and another vectors
+    // Make a point from an angle in radians
+    fromAngle(angle) {
+        Point new(Math cos(angle), Math sin(angle))
+    }
+
+    toAngle() {
+        Math atan2(y, x)
+    }
+
+    // signed angle in radians from this vector to other (counter-clockwise positive)
+    angleTo(other) {
+        Math atan2(self cross(other), self dot(other))
+    }
+
+    rotate(angle) {
+        cosA = Math cos(angle)
+        sinA = Math sin(angle)
+        Point new(x * cosA - y * sinA, x * sinA + y * cosA)
+    }
+
+    // 90° counter-clockwise rotation without trig
+    perpendicular() {
+        Point new(-y, x)
+    }
+    
+    // compute the dot product of this and another vectors
     dot(other) {
         (x * other getX) + (y * other getY)
     }
@@ -112,6 +142,11 @@ Point = Object clone {
     // this point, < 0 when clockwise, 0 when they are parallel
     cross(other) {
         (x * other getY) - (y * other getX)
+    }
+
+    // reflect this vector across a surface with the given unit normal
+    reflect(normal) {
+        self - (normal * (2 * (self dot(normal))))
     }
 
     // the point a fraction t of the way to other (t = 0: this one, 1: other)

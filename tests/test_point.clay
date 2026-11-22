@@ -17,6 +17,13 @@ import("stdlib/test")
 // Floats are 32-bit, so compare computed ones with a tolerance
 near = { |a, b| ((a - b) abs) < 0.0001 }
 
+// Angles π and -π are the same; allow differences of 0 or 2π
+nearAngle = { |a, b|
+    diff = ((a - b) abs)
+    twoPi = (Math pi * 2)
+    (diff < 0.0001) || (((twoPi - diff) abs) < 0.0001)
+}
+
 Test describe("Point") {
     Test describe("new") {
         Test it("makes a Point") {
@@ -46,6 +53,25 @@ Test describe("Point") {
             Point new(5, 6)
             Test assertEqual(Point getX, 0)
             Test assertEqual(Point getY, 0)
+        }
+
+        Test it("fromAngle and toAngle") {
+            angles = [
+                0, 
+                (Math pi) / 4,
+                (Math pi) / 2,
+                (3 * Math pi) / 4,
+                (Math pi),
+                (5 * Math pi) / 4,
+                (3 * Math pi) / 2,
+                (7 * Math pi) / 4
+            ]
+
+            angles each { |angle|
+                p = Point fromAngle(angle)
+                Test assertTrue(nearAngle(p toAngle, angle))
+                Test assertTrue(near(p length, 1))
+            }
         }
     }
 
@@ -195,6 +221,102 @@ Test describe("Point") {
             Test assertEqual(a lerp(b, 0), a)
             Test assertEqual(a lerp(b, 1), b)
             Test assertEqual(a lerp(b, 0.5), Point new(5, 10))
+        }
+
+        Test it("rotate by 0 leaves the point unchanged") {
+            p = Point new(3, 4)
+            r = p rotate(0)
+            Test assertTrue(near(r getX, 3))
+            Test assertTrue(near(r getY, 4))
+        }
+
+        Test it("rotate by quarter turns") {
+            // (1,0) → (0,1) → (-1,0) → (0,-1) → (1,0)
+            quarter = (Math pi) / 2
+            p0 = Point new(1, 0)
+            p1 = p0 rotate(quarter)
+            Test assertTrue(near(p1 getX, 0))
+            Test assertTrue(near(p1 getY, 1))
+            p2 = p1 rotate(quarter)
+            Test assertTrue(near(p2 getX, -1))
+            Test assertTrue(near(p2 getY, 0))
+            p3 = p2 rotate(quarter)
+            Test assertTrue(near(p3 getX, 0))
+            Test assertTrue(near(p3 getY, -1))
+            p4 = p3 rotate(quarter)
+            Test assertTrue(near(p4 getX, 1))
+            Test assertTrue(near(p4 getY, 0))
+        }
+
+        Test it("rotate preserves length") {
+            p = Point new(3, 4)
+            Test assertTrue(near(p rotate((Math pi) / 3) length, p length))
+        }
+
+        Test it("rotate by negative angle goes clockwise") {
+            p = Point new(1, 0) rotate(-(Math pi) / 2)
+            Test assertTrue(near(p getX, 0))
+            Test assertTrue(near(p getY, -1))
+        }
+
+        Test it("rotate returns a new point and leaves the original alone") {
+            p = Point new(1, 0)
+            p rotate((Math pi) / 2)
+            Test assertEqual(p, Point new(1, 0))
+        }
+
+        Test it("perpendicular rotates 90° counter-clockwise") {
+            Test assertEqual(Point new(1, 0) perpendicular, Point new(0, 1))
+            Test assertEqual(Point new(0, 1) perpendicular, Point new(-1, 0))
+            Test assertEqual(Point new(-1, 0) perpendicular, Point new(0, -1))
+            Test assertEqual(Point new(0, -1) perpendicular, Point new(1, 0))
+        }
+
+        Test it("perpendicular is orthogonal and preserves length") {
+            p = Point new(3, 4)
+            Test assertEqual(p dot(p perpendicular), 0)
+            Test assertEqual(p perpendicular length, p length)
+        }
+
+        Test it("distanceSquared avoids sqrt") {
+            Test assertEqual(Point new(0, 0) distanceSquared(Point new(3, 4)), 25)
+            Test assertEqual(Point new(1, 1) distanceSquared(Point new(4, 5)), 25)
+            Test assertEqual(Point new(2, 3) distanceSquared(Point new(2, 3)), 0)
+        }
+
+        Test it("angleTo gives the signed angle between two vectors") {
+            right = Point new(1, 0)
+            up    = Point new(0, 1)
+            left  = Point new(-1, 0)
+            Test assertTrue(near(right angleTo(up),    (Math pi) / 2))
+            Test assertTrue(near(right angleTo(right), 0))
+            Test assertTrue(near(up    angleTo(right), -((Math pi) / 2)))
+            Test assertTrue(nearAngle(right angleTo(left), Math pi))
+        }
+
+        Test it("angleTo works for non-unit vectors") {
+            a = Point new(2, 0)
+            b = Point new(0, 3)
+            Test assertTrue(near(a angleTo(b), (Math pi) / 2))
+        }
+
+        Test it("reflect off axis-aligned normals") {
+            // bouncing off a horizontal floor: normal points up
+            v = Point new(1, -1)
+            r = v reflect(Point new(0, 1))
+            Test assertTrue(near(r getX, 1))
+            Test assertTrue(near(r getY, 1))
+            // bouncing off a vertical wall: normal points right
+            v = Point new(-1, 1)
+            r = v reflect(Point new(1, 0))
+            Test assertTrue(near(r getX, 1))
+            Test assertTrue(near(r getY, 1))
+        }
+
+        Test it("reflect preserves length") {
+            v = Point new(3, -4)
+            r = v reflect(Point new(0, 1))
+            Test assertTrue(near(r length, v length))
         }
     }
 
