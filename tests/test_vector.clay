@@ -1,0 +1,326 @@
+// Tests for Vector. Run them from anywhere in the Clay checkout:
+//   clay tests/test_vector.clay
+//
+// They use stdlib/test, which comes with Clay (see test_point.clay for a summary).
+// Each `it` block is its own block: a variable made in one test isn't seen in
+// the next, so every test builds the vectors it needs.
+import("point")
+import("stdlib/test")
+
+// Floats are 32-bit, so compare computed ones with a tolerance
+near = { |a, b| ((a - b) abs) < 0.0001 }
+
+// Angles π and -π are the same; allow differences of 0 or 2π
+nearAngle = { |a, b|
+    diff = ((a - b) abs)
+    twoPi = (Math pi * 2)
+    (diff < 0.0001) || (((twoPi - diff) abs) < 0.0001)
+}
+
+Test describe("Vector") {
+    Test describe("new") {
+        Test it("makes a Vector") {
+            Test assertEqual(Vector new(1, 2) type, "Vector")
+        }
+
+        Test it("sets x and y") {
+            v = Vector new(3, 4)
+            Test assertEqual(v getX, 3)
+            Test assertEqual(v getY, 4)
+        }
+
+        Test it("takes floats and negative numbers") {
+            v = Vector new(1.5, -2)
+            Test assertEqual(v getX, 1.5)
+            Test assertEqual(v getY, -2)
+        }
+
+        Test it("rejects anything but numbers") {
+            e = Test assertRaises({ Vector new("a", 2) })
+            Test assertEqual(e message, "Vector:new expects numbers")
+            Test assertRaises({ Vector new(1, nil) })
+            Test assertRaises({ Vector new })
+        }
+
+        Test it("leaves the prototype at zero") {
+            Vector new(5, 6)
+            Test assertEqual(Vector getX, 0)
+            Test assertEqual(Vector getY, 0)
+        }
+
+        Test it("fromAngle and toAngle") {
+            angles = [
+                0,
+                (Math pi) / 4,
+                (Math pi) / 2,
+                (3 * Math pi) / 4,
+                (Math pi),
+                (5 * Math pi) / 4,
+                (3 * Math pi) / 2,
+                (7 * Math pi) / 4
+            ]
+
+            angles each { |angle|
+                v = Vector fromAngle(angle)
+                Test assertTrue(nearAngle(v toAngle, angle))
+                Test assertTrue(near(v length, 1))
+            }
+        }
+
+        Test it("copy is equal but separate") {
+            v = Vector new(1, 2)
+            w = v copy
+            Test assertEqual(w, v)
+            w x = 5
+            Test assertEqual(v getX, 1)
+        }
+    }
+
+    Test describe("equality") {
+        Test it("== compares components") {
+            Test assertTrue(Vector new(1, 2) == Vector new(1, 2))
+            Test assertFalse(Vector new(1, 2) == Vector new(2, 1))
+        }
+
+        Test it("!= is the opposite of ==") {
+            Test assertFalse(Vector new(1, 2) != Vector new(1, 2))
+            Test assertTrue(Vector new(1, 2) != Vector new(1, 3))
+        }
+
+        Test it("is never equal to something that is not a vector") {
+            v = Vector new(1, 2)
+            Test assertFalse(v == nil)
+            Test assertFalse(v == 1)
+            Test assertFalse(v == "Vector(1, 2)")
+            Test assertTrue(v != nil)
+        }
+
+        Test it("is not equal to a Point with the same coordinates") {
+            Test assertFalse(Vector new(1, 2) == Point new(1, 2))
+            Test assertFalse(Point new(1, 2) == Vector new(1, 2))
+            Test assertTrue(Vector new(1, 2) != Point new(1, 2))
+        }
+
+        Test it("works with assertEqual") {
+            Test assertEqual(Vector new(1, 2), Vector new(1, 2))
+            Test assertNotEqual(Vector new(1, 2), Vector new(0, 0))
+        }
+    }
+
+    Test describe("arithmetic") {
+        Test it("+ and - work component by component") {
+            a = Vector new(1, 2)
+            b = Vector new(3, 5)
+            Test assertEqual(a + b, Vector new(4, 7))
+            Test assertEqual(b - a, Vector new(2, 3))
+        }
+
+        Test it("* and / take a number") {
+            Test assertEqual(Vector new(1, 2) * 3, Vector new(3, 6))
+            Test assertEqual(Vector new(1, 2) * 0.5, Vector new(0.5, 1))
+            Test assertEqual(Vector new(4, 6) / 2, Vector new(2, 3))
+        }
+
+        Test it("integer vectors divide like integers") {
+            Test assertEqual(Vector new(7, 9) / 2, Vector new(3, 4))
+            Test assertRaises({ Vector new(1, 1) / 0 }, "DivisionByZero")
+        }
+
+        Test it("negated flips both signs") {
+            Test assertEqual(Vector new(3, -4) negated, Vector new(-3, 4))
+        }
+
+        Test it("unary minus sends negated") {
+            v = Vector new(3, -4)
+            Test assertEqual(-v, Vector new(-3, 4))
+            Test assertEqual(-(v + Vector new(1, 1)), Vector new(-4, 3))
+        }
+
+        Test it("operators return new vectors and leave their operands alone") {
+            a = Vector new(1, 2)
+            b = Vector new(3, 4)
+            a + b
+            a - b
+            a * 2
+            a negated
+            Test assertEqual(a, Vector new(1, 2))
+            Test assertEqual(b, Vector new(3, 4))
+        }
+
+        Test it("+ and - need a vector") {
+            e = Test assertRaises({ Vector new(1, 2) + 1 })
+            Test assertEqual(e message, "Vector +: expects a Vector")
+            e = Test assertRaises({ Vector new(1, 2) - Point new(1, 1) })
+            Test assertEqual(e message, "Vector -: expects a Vector")
+            Test assertRaises({ Vector new(1, 2) + Point new(1, 1) })
+        }
+    }
+
+    Test describe("vector math") {
+        Test it("lenSquared and length") {
+            v = Vector new(3, 4)
+            Test assertEqual(v lenSquared, 25)
+            Test assertEqual(v length, 5)
+            Test assertEqual(Vector new(0, 0) length, 0)
+        }
+
+        Test it("dot") {
+            Test assertEqual(Vector new(1, 2) dot(Vector new(3, 4)), 11)
+            Test assertEqual(Vector new(1, 0) dot(Vector new(0, 1)), 0)
+        }
+
+        Test it("cross gives the turn direction") {
+            Test assertEqual(Vector new(1, 0) cross(Vector new(0, 1)), 1)
+            Test assertEqual(Vector new(0, 1) cross(Vector new(1, 0)), -1)
+            Test assertEqual(Vector new(2, 2) cross(Vector new(1, 1)), 0)
+        }
+
+        Test it("normalized has length 1 and the same direction") {
+            n = Vector new(3, 4) normalized
+            Test assertTrue(near(n getX, 0.6))
+            Test assertTrue(near(n getY, 0.8))
+            Test assertTrue(near(n length, 1))
+        }
+
+        Test it("normalized refuses a zero-length vector") {
+            e = Test assertRaises({ Vector new(0, 0) normalized })
+            Test assertEqual(e message, "Vector normalized: zero length")
+        }
+
+        Test it("lerp goes part of the way") {
+            a = Vector new(0, 0)
+            b = Vector new(10, 20)
+            Test assertEqual(a lerp(b, 0), a)
+            Test assertEqual(a lerp(b, 1), b)
+            Test assertEqual(a lerp(b, 0.5), Vector new(5, 10))
+        }
+
+        Test it("rotate by 0 leaves the vector unchanged") {
+            r = Vector new(3, 4) rotate(0)
+            Test assertTrue(near(r getX, 3))
+            Test assertTrue(near(r getY, 4))
+        }
+
+        Test it("rotate by quarter turns") {
+            // (1,0) → (0,1) → (-1,0) → (0,-1) → (1,0)
+            quarter = (Math pi) / 2
+            v0 = Vector new(1, 0)
+            v1 = v0 rotate(quarter)
+            Test assertTrue(near(v1 getX, 0))
+            Test assertTrue(near(v1 getY, 1))
+            v2 = v1 rotate(quarter)
+            Test assertTrue(near(v2 getX, -1))
+            Test assertTrue(near(v2 getY, 0))
+            v3 = v2 rotate(quarter)
+            Test assertTrue(near(v3 getX, 0))
+            Test assertTrue(near(v3 getY, -1))
+            v4 = v3 rotate(quarter)
+            Test assertTrue(near(v4 getX, 1))
+            Test assertTrue(near(v4 getY, 0))
+        }
+
+        Test it("rotate preserves length") {
+            v = Vector new(3, 4)
+            Test assertTrue(near(v rotate((Math pi) / 3) length, v length))
+        }
+
+        Test it("rotate by negative angle goes clockwise") {
+            v = Vector new(1, 0) rotate(-(Math pi) / 2)
+            Test assertTrue(near(v getX, 0))
+            Test assertTrue(near(v getY, -1))
+        }
+
+        Test it("rotate returns a new vector and leaves the original alone") {
+            v = Vector new(1, 0)
+            v rotate((Math pi) / 2)
+            Test assertEqual(v, Vector new(1, 0))
+        }
+
+        Test it("perpendicular rotates 90° counter-clockwise") {
+            Test assertEqual(Vector new(1, 0) perpendicular, Vector new(0, 1))
+            Test assertEqual(Vector new(0, 1) perpendicular, Vector new(-1, 0))
+            Test assertEqual(Vector new(-1, 0) perpendicular, Vector new(0, -1))
+            Test assertEqual(Vector new(0, -1) perpendicular, Vector new(1, 0))
+        }
+
+        Test it("perpendicular is orthogonal and preserves length") {
+            v = Vector new(3, 4)
+            Test assertEqual(v dot(v perpendicular), 0)
+            Test assertEqual(v perpendicular length, v length)
+        }
+
+        Test it("angleTo gives the signed angle between two vectors") {
+            right = Vector new(1, 0)
+            up    = Vector new(0, 1)
+            left  = Vector new(-1, 0)
+            Test assertTrue(near(right angleTo(up),    (Math pi) / 2))
+            Test assertTrue(near(right angleTo(right), 0))
+            Test assertTrue(near(up    angleTo(right), -((Math pi) / 2)))
+            Test assertTrue(nearAngle(right angleTo(left), Math pi))
+        }
+
+        Test it("angleTo works for non-unit vectors") {
+            a = Vector new(2, 0)
+            b = Vector new(0, 3)
+            Test assertTrue(near(a angleTo(b), (Math pi) / 2))
+        }
+
+        Test it("reflect off axis-aligned normals") {
+            // bouncing off a horizontal floor: normal points up
+            v = Vector new(1, -1)
+            r = v reflect(Vector new(0, 1))
+            Test assertTrue(near(r getX, 1))
+            Test assertTrue(near(r getY, 1))
+            // bouncing off a vertical wall: normal points right
+            v = Vector new(-1, 1)
+            r = v reflect(Vector new(1, 0))
+            Test assertTrue(near(r getX, 1))
+            Test assertTrue(near(r getY, 1))
+        }
+
+        Test it("reflect preserves length") {
+            v = Vector new(3, -4)
+            r = v reflect(Vector new(0, 1))
+            Test assertTrue(near(r length, v length))
+        }
+
+        Test it("project keeps the part along another vector") {
+            Test assertEqual(Vector new(3, 4) project(Vector new(1, 0)), Vector new(3, 0))
+            Test assertEqual(Vector new(3, 4) project(Vector new(0, 1)), Vector new(0, 4))
+            Test assertEqual(Vector new(2, 2) project(Vector new(0, 2)), Vector new(0, 2))
+        }
+
+        Test it("project onto a zero vector raises") {
+            e = Test assertRaises({ Vector new(1, 2) project(Vector new(0, 0)) })
+            Test assertEqual(e message, "Vector project: zero length")
+        }
+    }
+
+    Test describe("conversion") {
+        Test it("toPoint gives the point at the same coordinates") {
+            p = Vector new(3, 4) toPoint
+            Test assertEqual(p type, "Point")
+            Test assertEqual(p, Point new(3, 4))
+        }
+
+        Test it("toPoint and toVector round-trip") {
+            v = Vector new(3, 4)
+            Test assertEqual(v toPoint toVector, v)
+        }
+    }
+
+    Test describe("toString") {
+        Test it("shows the components") {
+            Test assertEqual(Vector new(1, 2) toString, "Vector(1, 2)")
+            Test assertEqual(Vector new(1.5, -2) toString, "Vector(1.5, -2)")
+        }
+
+        Test it("is used by string interpolation") {
+            v = Vector new(3, 4)
+            Test assertEqual("is ${v}", "is Vector(3, 4)")
+        }
+    }
+}
+
+// run the test cases
+Test run

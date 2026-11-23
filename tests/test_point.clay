@@ -1,5 +1,5 @@
-// Tests for stdlib/point. Run them from anywhere in the Clay checkout:
-//   clay lib/stdlib/point/tests/test_point.clay
+// Tests for Point. Run them from anywhere in the Clay checkout:
+//   clay tests/test_point.clay
 //
 // They use stdlib/test, which comes with Clay:
 //   Test describe("name") { ... }   groups tests (groups can nest)
@@ -11,18 +11,13 @@
 //                                   any test failed (so CI sees it)
 // Each `it` block is its own block: a variable made in one test isn't seen in
 // the next, so every test builds the points it needs.
+//
+// Vector's own methods are tested in test_vector.clay.
 import("point")
 import("stdlib/test")
 
 // Floats are 32-bit, so compare computed ones with a tolerance
 near = { |a, b| ((a - b) abs) < 0.0001 }
-
-// Angles π and -π are the same; allow differences of 0 or 2π
-nearAngle = { |a, b|
-    diff = ((a - b) abs)
-    twoPi = (Math pi * 2)
-    (diff < 0.0001) || (((twoPi - diff) abs) < 0.0001)
-}
 
 Test describe("Point") {
     Test describe("new") {
@@ -53,25 +48,6 @@ Test describe("Point") {
             Point new(5, 6)
             Test assertEqual(Point getX, 0)
             Test assertEqual(Point getY, 0)
-        }
-
-        Test it("fromAngle and toAngle") {
-            angles = [
-                0, 
-                (Math pi) / 4,
-                (Math pi) / 2,
-                (3 * Math pi) / 4,
-                (Math pi),
-                (5 * Math pi) / 4,
-                (3 * Math pi) / 2,
-                (7 * Math pi) / 4
-            ]
-
-            angles each { |angle|
-                p = Point fromAngle(angle)
-                Test assertTrue(nearAngle(p toAngle, angle))
-                Test assertTrue(near(p length, 1))
-            }
         }
     }
 
@@ -119,6 +95,7 @@ Test describe("Point") {
             Test assertFalse(p == nil)
             Test assertFalse(p == 1)
             Test assertFalse(p == "Point(1, 2)")
+            Test assertFalse(p == Vector new(1, 2))
             Test assertTrue(p != nil)
         }
 
@@ -129,153 +106,56 @@ Test describe("Point") {
     }
 
     Test describe("arithmetic") {
-        Test it("+ and - work coordinate by coordinate") {
+        Test it("Point - Point is the Vector between them") {
+            d = Point new(4, 7) - Point new(1, 2)
+            Test assertEqual(d type, "Vector")
+            Test assertEqual(d, Vector new(3, 5))
+        }
+
+        Test it("Point + Vector is a Point") {
+            p = Point new(1, 2) + Vector new(3, 5)
+            Test assertEqual(p type, "Point")
+            Test assertEqual(p, Point new(4, 7))
+        }
+
+        Test it("Point - Vector is a Point") {
+            p = Point new(4, 7) - Vector new(3, 5)
+            Test assertEqual(p type, "Point")
+            Test assertEqual(p, Point new(1, 2))
+        }
+
+        Test it("a + (b - a) is b") {
             a = Point new(1, 2)
-            b = Point new(3, 5)
-            Test assertEqual(a + b, Point new(4, 7))
-            Test assertEqual(b - a, Point new(2, 3))
+            b = Point new(6, -3)
+            Test assertEqual(a + (b - a), b)
         }
 
-        Test it("* and / take a number") {
-            Test assertEqual(Point new(1, 2) * 3, Point new(3, 6))
-            Test assertEqual(Point new(1, 2) * 0.5, Point new(0.5, 1))
-            Test assertEqual(Point new(4, 6) / 2, Point new(2, 3))
-        }
-
-        Test it("integer points divide like integers") {
-            Test assertEqual(Point new(7, 9) / 2, Point new(3, 4))
-            Test assertRaises({ Point new(1, 1) / 0 }, "DivisionByZero")
-        }
-
-        Test it("negated flips both signs") {
-            Test assertEqual(Point new(3, -4) negated, Point new(-3, 4))
-        }
-
-        Test it("unary minus sends negated") {
-            p = Point new(3, -4)
-            Test assertEqual(-p, Point new(-3, 4))
-            Test assertEqual(-(p + Point new(1, 1)), Point new(-4, 3))
-        }
-
-        Test it("operators return new points and leave their operands alone") {
-            a = Point new(1, 2)
-            b = Point new(3, 4)
-            a + b
-            a - b
-            a * 2
-            a negated
-            Test assertEqual(a, Point new(1, 2))
-            Test assertEqual(b, Point new(3, 4))
-        }
-
-        Test it("scale changes the point and returns it") {
-            p = Point new(1, 2)
-            Test assertTrue((p scale(3)) == p)
-            Test assertEqual(p, Point new(3, 6))
-        }
-
-        Test it("+ needs a point") {
+        Test it("two points cannot be added") {
+            e = Test assertRaises({ Point new(1, 2) + Point new(3, 4) })
+            Test assertEqual(e message, "Point +: expects a Vector")
             Test assertRaises({ Point new(1, 2) + 1 })
+        }
+
+        Test it("- needs a point or a vector") {
+            e = Test assertRaises({ Point new(1, 2) - 1 })
+            Test assertEqual(e message, "Point -: expects a Point or a Vector")
+        }
+
+        Test it("operators return new objects and leave their operands alone") {
+            a = Point new(1, 2)
+            v = Vector new(3, 4)
+            a + v
+            a - v
+            a - Point new(0, 0)
+            Test assertEqual(a, Point new(1, 2))
+            Test assertEqual(v, Vector new(3, 4))
         }
     }
 
-    Test describe("vector math") {
-        Test it("lenSquared and length") {
-            p = Point new(3, 4)
-            Test assertEqual(p lenSquared, 25)
-            Test assertEqual(p length, 5)
-            Test assertEqual(Point new(0, 0) length, 0)
-        }
-
+    Test describe("distance") {
         Test it("distance") {
             Test assertEqual(Point new(1, 1) distance(Point new(4, 5)), 5)
             Test assertEqual(Point new(2, 3) distance(Point new(2, 3)), 0)
-        }
-
-        Test it("dot") {
-            Test assertEqual(Point new(1, 2) dot(Point new(3, 4)), 11)
-            Test assertEqual(Point new(1, 0) dot(Point new(0, 1)), 0)
-        }
-
-        Test it("cross gives the turn direction") {
-            Test assertEqual(Point new(1, 0) cross(Point new(0, 1)), 1)
-            Test assertEqual(Point new(0, 1) cross(Point new(1, 0)), -1)
-            Test assertEqual(Point new(2, 2) cross(Point new(1, 1)), 0)
-        }
-
-        Test it("normalized has length 1 and the same direction") {
-            n = Point new(3, 4) normalized
-            Test assertTrue(near value(n getX, 0.6))
-            Test assertTrue(near value(n getY, 0.8))
-            Test assertTrue(near value(n length, 1))
-        }
-
-        Test it("normalized refuses a zero-length point") {
-            e = Test assertRaises({ Point new(0, 0) normalized })
-            Test assertEqual(e message, "Point normalized: zero length")
-        }
-
-        Test it("lerp goes part of the way") {
-            a = Point new(0, 0)
-            b = Point new(10, 20)
-            Test assertEqual(a lerp(b, 0), a)
-            Test assertEqual(a lerp(b, 1), b)
-            Test assertEqual(a lerp(b, 0.5), Point new(5, 10))
-        }
-
-        Test it("rotate by 0 leaves the point unchanged") {
-            p = Point new(3, 4)
-            r = p rotate(0)
-            Test assertTrue(near(r getX, 3))
-            Test assertTrue(near(r getY, 4))
-        }
-
-        Test it("rotate by quarter turns") {
-            // (1,0) → (0,1) → (-1,0) → (0,-1) → (1,0)
-            quarter = (Math pi) / 2
-            p0 = Point new(1, 0)
-            p1 = p0 rotate(quarter)
-            Test assertTrue(near(p1 getX, 0))
-            Test assertTrue(near(p1 getY, 1))
-            p2 = p1 rotate(quarter)
-            Test assertTrue(near(p2 getX, -1))
-            Test assertTrue(near(p2 getY, 0))
-            p3 = p2 rotate(quarter)
-            Test assertTrue(near(p3 getX, 0))
-            Test assertTrue(near(p3 getY, -1))
-            p4 = p3 rotate(quarter)
-            Test assertTrue(near(p4 getX, 1))
-            Test assertTrue(near(p4 getY, 0))
-        }
-
-        Test it("rotate preserves length") {
-            p = Point new(3, 4)
-            Test assertTrue(near(p rotate((Math pi) / 3) length, p length))
-        }
-
-        Test it("rotate by negative angle goes clockwise") {
-            p = Point new(1, 0) rotate(-(Math pi) / 2)
-            Test assertTrue(near(p getX, 0))
-            Test assertTrue(near(p getY, -1))
-        }
-
-        Test it("rotate returns a new point and leaves the original alone") {
-            p = Point new(1, 0)
-            p rotate((Math pi) / 2)
-            Test assertEqual(p, Point new(1, 0))
-        }
-
-        Test it("perpendicular rotates 90° counter-clockwise") {
-            Test assertEqual(Point new(1, 0) perpendicular, Point new(0, 1))
-            Test assertEqual(Point new(0, 1) perpendicular, Point new(-1, 0))
-            Test assertEqual(Point new(-1, 0) perpendicular, Point new(0, -1))
-            Test assertEqual(Point new(0, -1) perpendicular, Point new(1, 0))
-        }
-
-        Test it("perpendicular is orthogonal and preserves length") {
-            p = Point new(3, 4)
-            Test assertEqual(p dot(p perpendicular), 0)
-            Test assertEqual(p perpendicular length, p length)
         }
 
         Test it("distanceSquared avoids sqrt") {
@@ -284,39 +164,70 @@ Test describe("Point") {
             Test assertEqual(Point new(2, 3) distanceSquared(Point new(2, 3)), 0)
         }
 
-        Test it("angleTo gives the signed angle between two vectors") {
-            right = Point new(1, 0)
-            up    = Point new(0, 1)
-            left  = Point new(-1, 0)
-            Test assertTrue(near(right angleTo(up),    (Math pi) / 2))
-            Test assertTrue(near(right angleTo(right), 0))
-            Test assertTrue(near(up    angleTo(right), -((Math pi) / 2)))
-            Test assertTrue(nearAngle(right angleTo(left), Math pi))
+        Test it("need a point") {
+            Test assertRaises({ Point new(1, 1) distance(Vector new(4, 5)) })
+            Test assertRaises({ Point new(1, 1) distanceSquared(nil) })
+        }
+    }
+
+    Test describe("lerp and midpoint") {
+        Test it("lerp goes part of the way") {
+            a = Point new(0, 0)
+            b = Point new(10, 20)
+            Test assertEqual(a lerp(b, 0), a)
+            Test assertEqual(a lerp(b, 1), b)
+            Test assertEqual(a lerp(b, 0.5), Point new(5, 10))
         }
 
-        Test it("angleTo works for non-unit vectors") {
-            a = Point new(2, 0)
-            b = Point new(0, 3)
-            Test assertTrue(near(a angleTo(b), (Math pi) / 2))
+        Test it("lerp returns a Point") {
+            Test assertEqual(Point new(0, 0) lerp(Point new(2, 2), 0.5) type, "Point")
         }
 
-        Test it("reflect off axis-aligned normals") {
-            // bouncing off a horizontal floor: normal points up
-            v = Point new(1, -1)
-            r = v reflect(Point new(0, 1))
-            Test assertTrue(near(r getX, 1))
-            Test assertTrue(near(r getY, 1))
-            // bouncing off a vertical wall: normal points right
-            v = Point new(-1, 1)
-            r = v reflect(Point new(1, 0))
-            Test assertTrue(near(r getX, 1))
-            Test assertTrue(near(r getY, 1))
+        Test it("lerp needs a point") {
+            Test assertRaises({ Point new(0, 0) lerp(Vector new(1, 1), 0.5) })
         }
 
-        Test it("reflect preserves length") {
-            v = Point new(3, -4)
-            r = v reflect(Point new(0, 1))
-            Test assertTrue(near(r length, v length))
+        Test it("midpoint is halfway") {
+            Test assertEqual(Point new(0, 0) midpoint(Point new(10, 20)), Point new(5, 10))
+            Test assertEqual(Point new(-2, 4) midpoint(Point new(2, 0)), Point new(0, 2))
+        }
+    }
+
+    Test describe("orientation") {
+        Test it("is positive for a counterclockwise turn") {
+            a = Point new(0, 0)
+            Test assertEqual(a orientation(Point new(1, 0), Point new(0, 1)), 1)
+        }
+
+        Test it("is negative for a clockwise turn") {
+            a = Point new(0, 0)
+            Test assertEqual(a orientation(Point new(0, 1), Point new(1, 0)), -1)
+        }
+
+        Test it("is zero for points in a line") {
+            a = Point new(0, 0)
+            Test assertEqual(a orientation(Point new(1, 1), Point new(3, 3)), 0)
+        }
+    }
+
+    Test describe("conversion") {
+        Test it("toVector is the offset from the origin") {
+            v = Point new(3, 4) toVector
+            Test assertEqual(v type, "Vector")
+            Test assertEqual(v, Vector new(3, 4))
+            Test assertEqual(v length, 5)
+        }
+
+        Test it("toVector and toPoint round-trip") {
+            p = Point new(3, 4)
+            Test assertEqual(p toVector toPoint, p)
+        }
+
+        Test it("toVector gives an independent vector") {
+            p = Point new(3, 4)
+            v = p toVector
+            v x = 9
+            Test assertEqual(p getX, 3)
         }
     }
 

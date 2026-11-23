@@ -1,6 +1,6 @@
 {
   "name": "point",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "clay": ">=0.3.11",
   "description": "2D points and vectors: arithmetic, length, dot and cross products",
   "main": "src/main.clay",

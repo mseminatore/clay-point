@@ -1,21 +1,160 @@
-// point -- a 2D point (or vector) with arithmetic and vector math
+// point -- 2D points and vectors with arithmetic and vector math
 //
 // Usage:
-//   import("stdlib/point")
+//   import("point")
 //
 //   a = Point new(3, 4)
 //   b = Point new(1, 2)
-//   (a + b) println                  // Point(4, 6)
-//   (a * 2) println                  // Point(6, 8)
-//   a length println                 // 5
-//   (a dot(b)) println               // 11
+//   d = a - b                        // Vector(2, 2)   Point - Point is a Vector
+//   (b + d) println                  // Point(3, 4)    Point + Vector is a Point
+//   d length println                 // 2.828427
+//   (Vector new(3, 4) dot(Vector new(1, 2))) println   // 11
 //
-// The operators (+, -, *, /, negated, normalized, ...) return new points;
-// setX, setY and scale change the point itself (and return it, so calls chain).
+// A Point is a location; a Vector is a displacement. They are separate types:
+//
+//   Point - Point  -> Vector          Vector + Vector  -> Vector
+//   Point + Vector -> Point           Vector * number  -> Vector
+//   Point - Vector -> Point           Point + Point    -> error (meaningless)
+//
+// Length, dot, cross, rotation and the like are Vector operations; a Point has
+// distance, lerp and midpoint. Use toVector / toPoint to convert (the position
+// vector of a point is its offset from the origin).
+//
+// The operators return new objects; Point's setX and setY change the point itself
+// (and return it, so calls chain). Vectors are never changed in place by a method.
 //
 // Every brick shares one set of top-level names with the program that imports
 // it, so keep yours few and distinctive: typically just the objects you provide.
 
+// A displacement: has a length and a direction, but no position.
+Vector = Object clone {
+    x = 0
+    y = 0
+
+    // constructor
+    init(anx, any) {
+        ((anx type != "Number") || (any type != "Number")) ifTrue { raise("Vector:new expects numbers") }
+
+        x = anx
+        y = any
+    }
+
+    getX()  { x }
+
+    getY()  { y }
+
+    copy() { Vector new(x, y) }
+
+    // Make a unit vector from an angle in radians
+    fromAngle(angle) {
+        Vector new(Math cos(angle), Math sin(angle))
+    }
+
+    // angle of this vector in radians, counter-clockwise from the +x axis
+    toAngle() {
+        Math atan2(y, x)
+    }
+
+    // the point this vector reaches from the origin
+    toPoint() { Point new(x, y) }
+
+    // squared length (L2 norm squared)
+    lenSquared() {
+        (x * x) + (y * y)
+    }
+
+    // magnitude
+    length() {
+        Math sqrt(self lenSquared())
+    }
+
+    // the vector scaled to length 1 (a zero-length vector has no direction)
+    normalized() {
+        len = self length
+        (len == 0) ifTrue { raise("Vector normalized: zero length") }
+        Vector new(x / len, y / len)
+    }
+
+    +(other) {
+        (other type == "Vector") ifFalse { raise("Vector +: expects a Vector") }
+        Vector new(x + other getX, y + other getY)
+    }
+
+    -(other) {
+        (other type == "Vector") ifFalse { raise("Vector -: expects a Vector") }
+        Vector new(x - other getX, y - other getY)
+    }
+
+    // times / divided by a number (integer vectors divide like integers)
+    *(factor) {
+        Vector new(x * factor, y * factor)
+    }
+
+    /(divisor) {
+        Vector new(x / divisor, y / divisor)
+    }
+
+    // -v
+    negated() {
+        Vector new(-x, -y)
+    }
+
+    // Equal to another vector with the same components; anything that is not
+    // a vector (nil, a number, a Point, ...) is not equal. (!= is the opposite.)
+    ==(other) {
+        (other type == "Vector") ifFalse { return false }
+        x == other getX && y == other getY
+    }
+
+    // compute the dot product of this and another vector
+    dot(other) {
+        (x * other getX) + (y * other getY)
+    }
+
+    // the z of the 3D cross product: > 0 when other is counterclockwise from
+    // this vector, < 0 when clockwise, 0 when they are parallel
+    cross(other) {
+        (x * other getY) - (y * other getX)
+    }
+
+    // signed angle in radians from this vector to other (counter-clockwise positive)
+    angleTo(other) {
+        Math atan2(self cross(other), self dot(other))
+    }
+
+    rotate(angle) {
+        cosA = Math cos(angle)
+        sinA = Math sin(angle)
+        Vector new(x * cosA - y * sinA, x * sinA + y * cosA)
+    }
+
+    // 90° counter-clockwise rotation without trig
+    perpendicular() {
+        Vector new(-y, x)
+    }
+
+    // reflect this vector across a surface with the given unit normal
+    reflect(normal) {
+        self - (normal * (2 * (self dot(normal))))
+    }
+
+    // the part of this vector that lies along onto (integer vectors divide like integers)
+    project(onto) {
+        (onto lenSquared == 0) ifTrue { raise("Vector project: zero length") }
+        onto * ((self dot(onto)) / (onto lenSquared))
+    }
+
+    // the vector a fraction t of the way to other (t = 0: this one, 1: other)
+    lerp(other, t) {
+        Vector new(x + (other getX - x) * t, y + (other getY - y) * t)
+    }
+
+    toString() {
+        "Vector(${x}, ${y})"
+    }
+}
+
+// A location in the plane.
 Point = Object clone {
     x = 0
     y = 0
@@ -45,113 +184,56 @@ Point = Object clone {
 
     copy() { Point new(x, y) }
 
-    // L2 norm
-    lenSquared() {
-        (x * x) + (y * y)
+    // the displacement from the origin to this point
+    toVector() { Vector new(x, y) }
+
+    // Point - Point is the Vector between them; Point - Vector moves the point back
+    -(other) {
+        (other type == "Point") ifTrue { return Vector new(x - other getX, y - other getY) }
+        (other type == "Vector") ifTrue { return Point new(x - other getX, y - other getY) }
+        raise("Point -: expects a Point or a Vector")
     }
 
-    // magnitude
-    length() {
-        Math sqrt(self lenSquared())
+    // Point + Vector moves the point (two points cannot be added)
+    +(other) {
+        (other type == "Vector") ifFalse { raise("Point +: expects a Vector") }
+        Point new(x + other getX, y + other getY)
     }
 
     // how far it is to another point
     distance(other) {
+        (other type == "Point") ifFalse { raise("Point distance: expects a Point") }
         (self - other) length
     }
 
     // squared distance — avoids sqrt; use for comparisons
     distanceSquared(other) {
+        (other type == "Point") ifFalse { raise("Point distanceSquared: expects a Point") }
         (self - other) lenSquared
-    }
-
-    // the point scaled to length 1 (a zero-length point has no direction)
-    normalized() {
-        len = self length
-        (len == 0) ifTrue { raise("Point normalized: zero length") }
-        Point new(x / len, y / len)
-    }
-
-    +(other) {
-        Point new(x + other getX, y + other getY)
-    }
-
-    -(other) {
-        Point new(x - other getX, y - other getY)
-    }
-
-    // times / divided by a number (integer points divide like integers)
-    *(factor) {
-        Point new(x * factor, y * factor)
-    }
-
-    /(divisor) {
-        Point new(x / divisor, y / divisor)
-    }
-
-    // -p
-    negated() {
-        Point new(-x, -y)
-    }
-
-    // Equal to another point with the same coordinates; anything that is not
-    // a point (nil, a number, ...) is not equal. (!= is the opposite of ==.)
-    ==(other) {
-        ((other hasMethod("getX")) && (other hasMethod("getY"))) ifFalse { return false }
-        x == other getX && y == other getY
-    }
-
-    // scale this vector by a factor
-    scale(factor) {
-        x *= factor
-        y *= factor
-        self
-    }
-
-    // Make a point from an angle in radians
-    fromAngle(angle) {
-        Point new(Math cos(angle), Math sin(angle))
-    }
-
-    toAngle() {
-        Math atan2(y, x)
-    }
-
-    // signed angle in radians from this vector to other (counter-clockwise positive)
-    angleTo(other) {
-        Math atan2(self cross(other), self dot(other))
-    }
-
-    rotate(angle) {
-        cosA = Math cos(angle)
-        sinA = Math sin(angle)
-        Point new(x * cosA - y * sinA, x * sinA + y * cosA)
-    }
-
-    // 90° counter-clockwise rotation without trig
-    perpendicular() {
-        Point new(-y, x)
-    }
-    
-    // compute the dot product of this and another vectors
-    dot(other) {
-        (x * other getX) + (y * other getY)
-    }
-
-    // the z of the 3D cross product: > 0 when other is counterclockwise from
-    // this point, < 0 when clockwise, 0 when they are parallel
-    cross(other) {
-        (x * other getY) - (y * other getX)
-    }
-
-    // reflect this vector across a surface with the given unit normal
-    reflect(normal) {
-        self - (normal * (2 * (self dot(normal))))
     }
 
     // the point a fraction t of the way to other (t = 0: this one, 1: other)
     lerp(other, t) {
+        (other type == "Point") ifFalse { raise("Point lerp: expects a Point") }
         Point new(x + (other getX - x) * t, y + (other getY - y) * t)
+    }
+
+    // halfway between this point and other
+    midpoint(other) {
+        self lerp(other, 0.5)
+    }
+
+    // which way the path this -> b -> c turns: > 0 counterclockwise, < 0 clockwise,
+    // 0 when the three points are in a line
+    orientation(b, c) {
+        (b - self) cross(c - self)
+    }
+
+    // Equal to another point with the same coordinates; anything that is not
+    // a point (nil, a number, a Vector, ...) is not equal. (!= is the opposite.)
+    ==(other) {
+        (other type == "Point") ifFalse { return false }
+        x == other getX && y == other getY
     }
 
     toString() {
