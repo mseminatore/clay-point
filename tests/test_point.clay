@@ -27,14 +27,14 @@ Test describe("Point") {
 
         Test it("sets x and y") {
             p = Point new(3, 4)
-            Test assertEqual(p getX, 3)
-            Test assertEqual(p getY, 4)
+            Test assertEqual(p x, 3)
+            Test assertEqual(p y, 4)
         }
 
         Test it("takes floats and negative numbers") {
             p = Point new(1.5, -2)
-            Test assertEqual(p getX, 1.5)
-            Test assertEqual(p getY, -2)
+            Test assertEqual(p x, 1.5)
+            Test assertEqual(p y, -2)
         }
 
         Test it("rejects anything but numbers") {
@@ -46,8 +46,8 @@ Test describe("Point") {
 
         Test it("leaves the prototype at the origin") {
             Point new(5, 6)
-            Test assertEqual(Point getX, 0)
-            Test assertEqual(Point getY, 0)
+            Test assertEqual(Point x, 0)
+            Test assertEqual(Point y, 0)
         }
     }
 
@@ -59,6 +59,16 @@ Test describe("Point") {
             Test assertEqual(p, Point new(7, 8))
         }
 
+        Test it("rejects non-numbers in setX and setY") {
+            p = Point new(1, 2)
+
+            e = Test assertRaises({ p setX("a") })
+            Test assertEqual(e message, "Point: expected Number")
+
+            e = Test assertRaises({ p setY(nil) })
+            Test assertEqual(e message, "Point: expected Number")
+        }
+
         Test it("chain") {
             Test assertEqual(Point new(0, 0) setX(1) setY(2), Point new(1, 2))
         }
@@ -67,7 +77,7 @@ Test describe("Point") {
             p = Point new(1, 2)
             Test assertEqual(p x, 1)
             p y = 9
-            Test assertEqual(p getY, 9)
+            Test assertEqual(p y, 9)
         }
 
         Test it("copy is equal but separate") {
@@ -75,7 +85,7 @@ Test describe("Point") {
             q = p copy
             Test assertEqual(q, p)
             q setX(5)
-            Test assertEqual(p getX, 1)
+            Test assertEqual(p x, 1)
         }
     }
 
@@ -227,7 +237,7 @@ Test describe("Point") {
             p = Point new(3, 4)
             v = p toVector
             v x = 9
-            Test assertEqual(p getX, 3)
+            Test assertEqual(p x, 3)
         }
     }
 

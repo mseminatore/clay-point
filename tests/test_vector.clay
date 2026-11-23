@@ -25,14 +25,14 @@ Test describe("Vector") {
 
         Test it("sets x and y") {
             v = Vector new(3, 4)
-            Test assertEqual(v getX, 3)
-            Test assertEqual(v getY, 4)
+            Test assertEqual(v x, 3)
+            Test assertEqual(v y, 4)
         }
 
         Test it("takes floats and negative numbers") {
             v = Vector new(1.5, -2)
-            Test assertEqual(v getX, 1.5)
-            Test assertEqual(v getY, -2)
+            Test assertEqual(v x, 1.5)
+            Test assertEqual(v y, -2)
         }
 
         Test it("rejects anything but numbers") {
@@ -44,8 +44,8 @@ Test describe("Vector") {
 
         Test it("leaves the prototype at zero") {
             Vector new(5, 6)
-            Test assertEqual(Vector getX, 0)
-            Test assertEqual(Vector getY, 0)
+            Test assertEqual(Vector x, 0)
+            Test assertEqual(Vector y, 0)
         }
 
         Test it("fromAngle and toAngle") {
@@ -72,7 +72,45 @@ Test describe("Vector") {
             w = v copy
             Test assertEqual(w, v)
             w x = 5
-            Test assertEqual(v getX, 1)
+            Test assertEqual(v x, 1)
+        }
+    }
+    
+    Test describe("accessors") {
+        Test it("setX and setY change the vector and return it") {
+            p = Vector new(1, 2)
+            Test assertTrue((p setX(7)) == p)
+            p setY(8)
+            Test assertEqual(p, Vector new(7, 8))
+        }
+
+        Test it("rejects non-numbers in setX and setY") {
+            p = Vector new(1, 2)
+
+            e = Test assertRaises({ p setX("a") })
+            Test assertEqual(e message, "Vector: expected Number")
+
+            e = Test assertRaises({ p setY(nil) })
+            Test assertEqual(e message, "Vector: expected Number")
+        }
+
+        Test it("chain") {
+            Test assertEqual(Vector new(0, 0) setX(1) setY(2), Vector new(1, 2))
+        }
+
+        Test it("x and y are also plain slots") {
+            p = Vector new(1, 2)
+            Test assertEqual(p x, 1)
+            p y = 9
+            Test assertEqual(p y, 9)
+        }
+
+        Test it("copy is equal but separate") {
+            p = Vector new(1, 2)
+            q = p copy
+            Test assertEqual(q, p)
+            q setX(5)
+            Test assertEqual(p x, 1)
         }
     }
 
@@ -177,8 +215,8 @@ Test describe("Vector") {
 
         Test it("normalized has length 1 and the same direction") {
             n = Vector new(3, 4) normalized
-            Test assertTrue(near(n getX, 0.6))
-            Test assertTrue(near(n getY, 0.8))
+            Test assertTrue(near(n x, 0.6))
+            Test assertTrue(near(n y, 0.8))
             Test assertTrue(near(n length, 1))
         }
 
@@ -197,8 +235,8 @@ Test describe("Vector") {
 
         Test it("rotate by 0 leaves the vector unchanged") {
             r = Vector new(3, 4) rotate(0)
-            Test assertTrue(near(r getX, 3))
-            Test assertTrue(near(r getY, 4))
+            Test assertTrue(near(r x, 3))
+            Test assertTrue(near(r y, 4))
         }
 
         Test it("rotate by quarter turns") {
@@ -206,17 +244,17 @@ Test describe("Vector") {
             quarter = (Math pi) / 2
             v0 = Vector new(1, 0)
             v1 = v0 rotate(quarter)
-            Test assertTrue(near(v1 getX, 0))
-            Test assertTrue(near(v1 getY, 1))
+            Test assertTrue(near(v1 x, 0))
+            Test assertTrue(near(v1 y, 1))
             v2 = v1 rotate(quarter)
-            Test assertTrue(near(v2 getX, -1))
-            Test assertTrue(near(v2 getY, 0))
+            Test assertTrue(near(v2 x, -1))
+            Test assertTrue(near(v2 y, 0))
             v3 = v2 rotate(quarter)
-            Test assertTrue(near(v3 getX, 0))
-            Test assertTrue(near(v3 getY, -1))
+            Test assertTrue(near(v3 x, 0))
+            Test assertTrue(near(v3 y, -1))
             v4 = v3 rotate(quarter)
-            Test assertTrue(near(v4 getX, 1))
-            Test assertTrue(near(v4 getY, 0))
+            Test assertTrue(near(v4 x, 1))
+            Test assertTrue(near(v4 y, 0))
         }
 
         Test it("rotate preserves length") {
@@ -226,8 +264,8 @@ Test describe("Vector") {
 
         Test it("rotate by negative angle goes clockwise") {
             v = Vector new(1, 0) rotate(-(Math pi) / 2)
-            Test assertTrue(near(v getX, 0))
-            Test assertTrue(near(v getY, -1))
+            Test assertTrue(near(v x, 0))
+            Test assertTrue(near(v y, -1))
         }
 
         Test it("rotate returns a new vector and leaves the original alone") {
@@ -269,13 +307,13 @@ Test describe("Vector") {
             // bouncing off a horizontal floor: normal points up
             v = Vector new(1, -1)
             r = v reflect(Vector new(0, 1))
-            Test assertTrue(near(r getX, 1))
-            Test assertTrue(near(r getY, 1))
+            Test assertTrue(near(r x, 1))
+            Test assertTrue(near(r y, 1))
             // bouncing off a vertical wall: normal points right
             v = Vector new(-1, 1)
             r = v reflect(Vector new(1, 0))
-            Test assertTrue(near(r getX, 1))
-            Test assertTrue(near(r getY, 1))
+            Test assertTrue(near(r x, 1))
+            Test assertTrue(near(r y, 1))
         }
 
         Test it("reflect preserves length") {
